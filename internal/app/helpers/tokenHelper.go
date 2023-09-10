@@ -6,6 +6,7 @@ import (
 	"time"
 
 	jwt "github.com/dgrijalva/jwt-go"
+	"github.com/maksimUlitin/internal/storage"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
@@ -19,7 +20,7 @@ type SignedDetails struct {
 }
 
 var (
-	userCollection *mongo.Collection = database.OpenCollection(database.Client, "user")
+	userCollection *mongo.Collection = storage.OpenCollection(*storage.Client, "user")
 	SEKRET_KEY     string            = os.Getenv("SEKRET_KEY")
 )
 
@@ -48,3 +49,5 @@ func GenerateAlltokens(email string, firstName string, lastName string, userType
 	}
 	return token, refreshToken, err
 }
+
+//lkfjfjjfdkjfdkjfkd

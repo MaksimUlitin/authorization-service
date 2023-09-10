@@ -12,6 +12,7 @@ import (
 	"github.com/maksimUlitin/internal/app/helpers"
 	"github.com/maksimUlitin/internal/storage"
 	"github.com/maksimUlitin/pkg/models"
+	"golang.org/x/crypto/bcrypt"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -23,11 +24,22 @@ var (
 	validate                         = validator.New()
 	ctx, cancel                      = context.WithTimeout(context.Background(), 100*time.Second)
 	user           models.User
+	foundUser      models.User
 )
 
 func HashPassword() {}
 
-func VerifyPasswor() {}
+func VerifyPasswor(userPassword string, providedPassword string) (bool, string) {
+	err := bcrypt.CompareHashAndPassword([]byte(userPassword), []byte(providedPassword))
+	check := true
+	msg := ""
+	if err != nil {
+		msg = fmt.Sprintf("email of password is incorrect")
+		check = false
+	}
+
+	return check, msg
+}
 
 func SignUp() gin.HandlerFunc {
 
@@ -80,7 +92,23 @@ func SignUp() gin.HandlerFunc {
 }
 
 func Login() gin.HandlerFunc {
-	return func(c *gin.Context) {}
+	return func(c *gin.Context) {
+
+		if err := c.BindJSON(&user); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		err := userCollection.FindOne(ctx, bson.M{"email": user.Email}).Decode(&foundUser)
+		defer cancel()
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "email or password is incorrect"})
+			return
+		}
+
+		passwordIsValid, msg := VerifyPasswor(*user.Password, *foundUser.Password)
+		defer cancel()
+	}
 }
 
 func GetUsers() gin.HandlerFunc {
