@@ -15,11 +15,12 @@ import (
 var Client *mongo.Client = DBinstance()
 
 func DBinstance() *mongo.Client {
+
 	err := godotenv.Load(".env")
 	if err != nil {
 		log.Fatal("Error loading evn file ")
 	}
-	mongoDB := os.Getenv("MONGO_URL")
+	mongoDB := os.Getenv("MONGODB_URL")
 
 	client, err := mongo.NewClient(options.Client().ApplyURI(mongoDB))
 
