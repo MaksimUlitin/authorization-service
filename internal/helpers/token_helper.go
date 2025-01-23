@@ -3,11 +3,11 @@ package helpers
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
 	"time"
 
-	jwt "github.com/dgrijalva/jwt-go"
+	"github.com/dgrijalva/jwt-go"
+	"github.com/maksimUlitin/internal/lib"
 	"github.com/maksimUlitin/internal/storage"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -16,11 +16,11 @@ import (
 )
 
 type SignedDetails struct {
-	Email      string
-	First_name string
-	Last_name  string
-	Uid        string
-	User_type  string
+	Email     string
+	FirstName string
+	LastName  string
+	Uid       string
+	UserType  string
 	jwt.StandardClaims
 }
 
@@ -31,29 +31,30 @@ var (
 	updateObj      primitive.D
 )
 
-func GenerateAlltokens(email string, firstName string, lastName string, userType string, uid string) (signedToken string, signedRefreshToken string, err error) {
+func GenerateAllTokens(email string, firstName string, lastName string, userType string, uid string) (signedToken string, signedRefreshToken string, err error) {
 	claims := &SignedDetails{
-		Email:      email,
-		First_name: firstName,
-		Last_name:  lastName,
-		Uid:        uid,
-		User_type:  userType,
+		Email:     email,
+		FirstName: firstName,
+		LastName:  lastName,
+		Uid:       uid,
+		UserType:  userType,
 		StandardClaims: jwt.StandardClaims{
 			ExpiresAt: time.Now().Local().Add(time.Hour * time.Duration(24)).Unix(),
 		},
 	}
 
-	refreshClains := &SignedDetails{
+	refreshClaims := &SignedDetails{
 		StandardClaims: jwt.StandardClaims{
 			ExpiresAt: time.Now().Local().Add(time.Hour * time.Duration(168)).Unix(),
 		},
 	}
 	token, err := jwt.NewWithClaims(jwt.SigningMethodES256, claims).SignedString([]byte(SEKRET_KEY))
-	refreshToken, err := jwt.NewWithClaims(jwt.SigningMethodES256, refreshClains).SignedString([]byte(SEKRET_KEY))
+	refreshToken, err := jwt.NewWithClaims(jwt.SigningMethodES256, refreshClaims).SignedString([]byte(SEKRET_KEY))
 	if err != nil {
-		log.Panic(err)
+		logger.Error("Failed to generate tokens", "error", err, "user_id", uid)
 		return
 	}
+	logger.Info("Tokens generated successfully", "user_id", uid)
 	return token, refreshToken, err
 }
 
@@ -61,26 +62,27 @@ func ValidateToken(signedToken string) (claims *SignedDetails, msg string) {
 	token, err := jwt.ParseWithClaims(signedToken, &SignedDetails{}, func(t *jwt.Token) (interface{}, error) { return []byte(SEKRET_KEY), nil })
 	if err != nil {
 		msg = err.Error()
+		logger.Warn("Token validation failed", "error", msg)
 		return
 	}
 	claims, ok := token.Claims.(*SignedDetails)
 	if !ok {
-		msg = fmt.Sprintf(" the token is invalid")
-		msg = err.Error()
+		msg = fmt.Sprintf("the token is invalid")
+		logger.Warn("Invalid token claims", "error", msg)
 		return
 	}
 
 	if claims.ExpiresAt < time.Now().Local().Unix() {
 		msg = fmt.Sprintf("token is expired")
-		msg = err.Error()
+		logger.Warn("Token expired", "user_id", claims.Uid)
 		return
 	}
 
+	logger.Info("Token validated successfully", "user_id", claims.Uid)
 	return claims, msg
 }
 
 func UpdateAllTokens(signedToken string, signedRefreshToken string, userId string) {
-
 	updateObj = append(updateObj, bson.E{"token", signedToken})
 	updateObj = append(updateObj, bson.E{"refresh_token", signedRefreshToken})
 
@@ -96,8 +98,9 @@ func UpdateAllTokens(signedToken string, signedRefreshToken string, userId strin
 	_, err := userCollection.UpdateOne(ctx, filter, bson.D{{"$set", updateObj}}, &opt)
 	defer cancel()
 	if err != nil {
-		log.Panic(err)
+		logger.Error("Failed to update tokens in database", "error", err, "user_id", userId)
 		return
 	}
+	logger.Info("Tokens updated successfully in database", "user_id", userId)
 	return
 }
