@@ -8,7 +8,7 @@ services:
       - 27017:27017
     environment:
       MONGO_INITDB_ROOT_USERNAME: development
-      MONGO_INITDB_ROOT_PASSWORD: testpassword
+      MONGO_INITDB_ROOT_PASSWORD: 123_servic_auth
 
   mongo-express:
     image: mongo-express

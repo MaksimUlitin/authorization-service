@@ -1,27 +1,28 @@
 package main
 
 import (
+	"github.com/maksimUlitin/config"
+	"github.com/maksimUlitin/internal/helpers"
+	"log"
+	"log/slog"
 	"os"
 
 	"github.com/gin-gonic/gin"
-	"github.com/joho/godotenv"
 	"github.com/maksimUlitin/internal/lib"
 	"github.com/maksimUlitin/internal/routes"
 )
 
 func main() {
-	if err := godotenv.Load(".env"); err != nil {
-		logger.Warn("Error loading .env file", "error", err)
-	} else {
-		logger.Info(".env file loaded successfully")
+	config.LoadConfigEnv()
+
+	serverPort := os.Getenv("SERVER_PORT")
+	if serverPort == "" {
+		serverPort = "8088"
 	}
 
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
-		logger.Info("No PORT environment variable found, using default", "port", port)
-	} else {
-		logger.Info("Server port set from environment variable", "port", port)
+	serverPortFallback := os.Getenv("SERVER_PORT_FALLBACK")
+	if serverPortFallback == "" {
+		serverPortFallback = "8089"
 	}
 
 	router := gin.Default()
@@ -35,9 +36,12 @@ func main() {
 	routes.APIRouter(router)
 	logger.Info("API routes initialized")
 
-	logger.Info("Starting server", "port", port)
-	if err := router.Run(":" + port); err != nil {
-		logger.Error("Failed to start server", "error", err)
-		os.Exit(1)
+	logger.Info("Starting server", "port", serverPort)
+	if err := helpers.TryRunServer(router, serverPort); err != nil {
+		logger.Warn("Main port is occupied, trying fallback port", slog.String("fallbackPort", serverPortFallback))
+		if err := helpers.TryRunServer(router, serverPortFallback); err != nil {
+			logger.Error("Server failed to start on both main and fallback ports", slog.Any("error", err))
+			log.Fatal(err)
+		}
 	}
 }

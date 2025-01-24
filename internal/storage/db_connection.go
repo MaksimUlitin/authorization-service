@@ -2,10 +2,11 @@ package storage
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"time"
 
-	"github.com/joho/godotenv"
+	"github.com/maksimUlitin/config"
 	"github.com/maksimUlitin/internal/lib"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -14,20 +15,22 @@ import (
 var Client *mongo.Client = DBInstance()
 
 func DBInstance() *mongo.Client {
-	err := godotenv.Load(".env")
-	if err != nil {
-		logger.Error("Error loading .env file", "error", err)
-		os.Exit(1)
-	}
+	config.LoadConfigEnv()
 	logger.Info(".env file loaded successfully")
 
-	mongoDB := os.Getenv("MONGODB_URL")
-	if mongoDB == "" {
-		logger.Error("MONGODB_URL environment variable is not set")
+	mongoUser := os.Getenv("MONGO_USER")
+	mongoPassword := os.Getenv("MONGO_PASSWORD")
+	mongoHost := os.Getenv("MONGO_HOST")
+	mongoPort := os.Getenv("MONGO_PORT")
+
+	if mongoUser == "" || mongoPassword == "" || mongoHost == "" || mongoPort == "" {
+		logger.Error("One or more MongoDB environment variables are not set")
 		os.Exit(1)
 	}
 
-	client, err := mongo.NewClient(options.Client().ApplyURI(mongoDB))
+	mongoURI := fmt.Sprintf("mongodb://%s:%s@%s:%s", mongoUser, mongoPassword, mongoHost, mongoPort)
+
+	client, err := mongo.NewClient(options.Client().ApplyURI(mongoURI))
 	if err != nil {
 		logger.Error("Failed to create MongoDB client", "error", err)
 		os.Exit(1)
